@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:gravity="center"
+        android:layout_marginBottom="40dp"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <Button
+            android:id="@+id/btnRecord"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Record" />
+
+    </LinearLayout>
+
+
+
+
+   <!-- <LinearLayout
+        android:id="@+id/llGyroCard"
+        android:layout_width="150dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        android:orientation="vertical"
+        android:padding="5dp"
+        tools:layout_editor_absoluteX="51dp"
+        tools:layout_editor_absoluteY="207dp">
+
+        <TextView
+            android:id="@+id/tvGyroTitle"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gyroscope" />
+
+        <TextView
+            android:id="@+id/tvGyrox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gx: 0.00 rad/s" />
+
+        <TextView
+            android:id="@+id/tvGyroy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gy: 0.00 rad/s" />
+
+        <TextView
+            android:id="@+id/tvGyroz"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Gz: 0.00 rad/s" />
+    </LinearLayout>-->
+
+    <LinearLayout
+        android:id="@+id/llAccCard"
+        android:layout_width="150dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        android:orientation="vertical"
+        android:padding="5dp"
+        tools:layout_editor_absoluteX="51dp"
+        tools:layout_editor_absoluteY="207dp">
+
+        <TextView
+            android:id="@+id/tvAccTitle"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Accelerometer" />
+
+        <TextView
+            android:id="@+id/tvAccx"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ax: 0.00 m/s^2" />
+
+        <TextView
+            android:id="@+id/tvAccy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ay: 0.00 m/s^2" />
+
+        <TextView
+            android:id="@+id/tvAccz"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Az: 0.00 m/s^2" />
+
+        <TextView
+            android:id="@+id/tvAcc"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Am: 0.00 m/s^2" />
+
+        <TextView
+            android:id="@+id/tvAccBias"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ab: 0.00 m/s^2" />
+
+        <TextView
+            android:id="@+id/tvAccdyn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ad: 0.00 m/s^2" />
+
+        <TextView
+            android:id="@+id/tvSteps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Steps: 0" />
+    </LinearLayout>
+
+    <com.github.mikephil.charting.charts.LineChart
+        android:id="@+id/chartraw"
+        app:layout_constraintTop_toBottomOf="@id/llAccCard"
+        android:layout_marginTop="25dp"
+        android:layout_marginHorizontal="25dp"
+        android:layout_width="match_parent"
+        android:layout_height="150dp" />
+
+    <com.github.mikephil.charting.charts.LineChart
+        android:id="@+id/chartkf"
+        app:layout_constraintTop_toBottomOf="@id/chartraw"
+        android:layout_marginTop="25dp"
+        android:layout_marginHorizontal="25dp"
+        android:layout_width="match_parent"
+        android:layout_height="150dp" />
+
+  <!--  <LinearLayout
+        android:layout_width="150dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toBottomOf="@id/llAccCard"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        android:orientation="vertical"
+        android:padding="5dp"
+        tools:layout_editor_absoluteX="51dp"
+        tools:layout_editor_absoluteY="207dp">
+
+        <TextView
+            android:id="@+id/tvMagTitle"
+            android:gravity="center"
+            android:textSize="20sp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Magnetometer" />
+
+        <TextView
+            android:id="@+id/tvMagx"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mx: 0.00 uT" />
+
+        <TextView
+            android:id="@+id/tvMagy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="My: 0.00 uT" />
+
+        <TextView
+            android:id="@+id/tvMagz"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Mz: 0.00 uT" />
+    </LinearLayout>-->
+
+</androidx.constraintlayout.widget.ConstraintLayout>
