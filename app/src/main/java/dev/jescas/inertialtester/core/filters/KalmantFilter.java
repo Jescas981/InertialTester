@@ -1,9 +1,8 @@
-package dev.jescas.inertialtester;
+package dev.jescas.inertialtester.core.filters;
 
-import org.ejml.simple.ConstMatrix;
 import org.ejml.simple.SimpleMatrix;
 
-public class KalmanFilter {
+public class KalmantFilter {
     private SimpleMatrix F;  // State transition matrix
     private SimpleMatrix Q;  // Process noise covariance matrix
     private SimpleMatrix H;  // Observation matrix
@@ -12,7 +11,7 @@ public class KalmanFilter {
     private SimpleMatrix P;  // Covariance matrix
 
     // Constructor
-    public KalmanFilter() {
+    public KalmantFilter() {
         // Initialize the state vector X = [dynamic acceleration, bias]
         X = new SimpleMatrix(2, 1);
         X.set(0, 0, 0);   // Initial dynamic acceleration (starting at 0)
@@ -40,7 +39,7 @@ public class KalmanFilter {
     }
 
     // Prediction step
-    public void predict() {
+    public void Predict() {
         // State prediction X = F * X
         X = F.mult(X);
 
@@ -49,10 +48,10 @@ public class KalmanFilter {
     }
 
     // Update step (measurement update)
-    public void update(double measurement) {
+    public void Update(double raw) {
         // Measurement residual y = z - H * X
         SimpleMatrix z = new SimpleMatrix(1, 1);  // Measurement (acceleration)
-        z.set(0, 0, measurement);
+        z.set(0, 0, raw);
         SimpleMatrix y = z.minus(H.mult(X));
 
         // Innovation covariance S = H * P * H' + R
@@ -70,12 +69,12 @@ public class KalmanFilter {
     }
 
     // Get dynamic acceleration (filtered result)
-    public double getDynamicAcceleration() {
+    public double GetDynamicAcceleration() {
         return X.get(0, 0); // Return the first state variable (dynamic acceleration)
     }
 
     // Get bias (gravity component)
-    public double getBias() {
+    public double GetBias() {
         return X.get(1, 0); // Return the second state variable (bias)
     }
 }
