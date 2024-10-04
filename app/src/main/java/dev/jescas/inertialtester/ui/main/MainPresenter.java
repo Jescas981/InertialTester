@@ -4,6 +4,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 
+import org.ejml.data.FMatrix3;
 import org.ejml.simple.SimpleMatrix;
 
 import java.io.ByteArrayOutputStream;
@@ -22,10 +23,10 @@ public class MainPresenter implements IMainPresenter{
     private final IMainView view;
     private final MainModel model;
     private boolean onRecording = false;
-    private final int MAX_BUFFER_SIZE = 100 * 1024 * 1024;  // 100 MB
-    ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-    private String filename;
-    private WriteFileStream accFileStream;
+    private WriteFileStream accFileStream, magFileStream, gyroFileStream;
+    private FMatrix3 accVector = new FMatrix3();
+    private FMatrix3 magVector = new FMatrix3();
+
 
     public MainPresenter(IMainView view){
         this.view = view;
@@ -33,13 +34,19 @@ public class MainPresenter implements IMainPresenter{
     }
 
     public void EnableRecord(boolean enable){
-        onRecording = enable;
         if(enable) {
             accFileStream =  new WriteFileStream(view.getBaseContext().getExternalFilesDir(null), "accel_data");
+            magFileStream =  new WriteFileStream(view.getBaseContext().getExternalFilesDir(null), "mag_data");
+            gyroFileStream =  new WriteFileStream(view.getBaseContext().getExternalFilesDir(null), "gyro_data");
         }else{
             view.OnRecordFinished(accFileStream.GetFilePath());
+            view.OnRecordFinished(gyroFileStream.GetFilePath());
+            view.OnRecordFinished(magFileStream.GetFilePath());
             accFileStream.CloseStream();
+            gyroFileStream.CloseStream();
+            magFileStream.CloseStream();
         }
+        onRecording = enable;
     }
 
     @Override
@@ -49,16 +56,30 @@ public class MainPresenter implements IMainPresenter{
             // Turn this into a Vector3f
             float[] values = sensorEvent.values;
             // Create Acceleration Vector
-            SimpleMatrix acc_vector = new SimpleMatrix(3,1,true,
-                    new double[]{values[0],values[1],values[2]});
+            accVector = new FMatrix3(values[0],values[1],values[2]);
             // Process Data & Show in UI
-            double acc_abs = Math.sqrt(Math.pow(acc_vector.get(0), 2) + Math.pow(acc_vector.get(1), 2));
-            double acc_ft = model.ProcessRawAcceleration(acc_vector);
-            view.AddEntriesChart(acc_abs, acc_ft);
-            view.UpdateTextUI(acc_vector, acc_ft);
+            FMatrix3 orientation = model.ProcessOrientation(accVector,magVector);
+            view.AddEntriesChart(orientation);
             // Save on record only
             if(onRecording){
                 accFileStream.AppendData(values);
+            }
+        }
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_GYROSCOPE){
+            // Turn this into a Vector3f
+            float[] values = sensorEvent.values;
+            // Save on record only
+            if(onRecording){
+                gyroFileStream.AppendData(values);
+            }
+        }
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
+            // Turn this into a Vector3f
+            float[] values = sensorEvent.values;
+            magVector = new FMatrix3(values[0],values[1],values[2]);
+            // Save on record only
+            if(onRecording){
+                magFileStream.AppendData(values);
             }
         }
     }

@@ -17,6 +17,7 @@ import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.utils.ColorTemplate;
 
+import org.ejml.data.FMatrix3;
 import org.ejml.simple.SimpleMatrix;
 
 
@@ -24,9 +25,12 @@ import dev.jescas.inertialtester.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity implements IMainView {
     private ActivityMainBinding binding;
-    private LineDataSet accMagnitudeDataSet, accKFDataset;
-    private LineData accLineDataRaw, accLineDataKF;
-    LineChart lineChartRaw, lineChartKF;
+    LineChart orientationChart;
+    private LineDataSet rollDataset;
+    private LineDataSet pitchDataset;
+    private LineDataSet yawDataset;
+    private LineData orientationData;
+
     private static final int MAX_SAMPLES = 200; // Limit to 200 samples
     private int sampleCount = 0;
     private boolean onRecord = true;
@@ -42,8 +46,17 @@ public class MainActivity extends AppCompatActivity implements IMainView {
         binding.btnRecord.setOnClickListener(this::OnRecord);
         SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         Sensor accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        Sensor gyroscopeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        Sensor magnetometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+
         if (accelerometerSensor != null) {
             sensorManager.registerListener(mainPresenter, accelerometerSensor, SensorManager.SENSOR_DELAY_GAME);
+        }
+        if (gyroscopeSensor != null) {
+            sensorManager.registerListener(mainPresenter, gyroscopeSensor, SensorManager.SENSOR_DELAY_GAME);
+        }
+        if (magnetometerSensor != null) {
+            sensorManager.registerListener(mainPresenter, magnetometerSensor, SensorManager.SENSOR_DELAY_GAME);
         }
         // Chart related
         SetupCharts();
@@ -62,125 +75,110 @@ public class MainActivity extends AppCompatActivity implements IMainView {
         onRecord = !onRecord;
     }
 
-    public void OnRecordChunk(){
-        Toast.makeText(this, "Saving chunk for memory safety", Toast.LENGTH_SHORT).show();
-    }
-
     public void OnRecordFinished(String filepath){
         Toast.makeText(this, "Saving file in " + filepath, Toast.LENGTH_SHORT).show();
     }
 
-
     public void SetupCharts() {
-        lineChartRaw = binding.chartraw;
-        lineChartKF = binding.chartkf;
-        // Initialize DataSet for accelerometer magnitude
-        accMagnitudeDataSet = new LineDataSet(null, "Accel Magnitude (m/s²)");
-        accMagnitudeDataSet.setDrawCircles(false);
-        accMagnitudeDataSet.setColor(ColorTemplate.getHoloBlue());
-        accMagnitudeDataSet.setLineWidth(2f);
-        accMagnitudeDataSet.setDrawValues(false);
+        orientationChart = binding.chartOrientation;
 
+        // Initialize DataSet for roll, pitch, and yaw
+        rollDataset = new LineDataSet(null, "Roll");
+        pitchDataset = new LineDataSet(null, "Pitch"); // Initialize pitch dataset
+        yawDataset = new LineDataSet(null, "Yaw"); // Initialize yaw dataset
 
-        // Initialize LineData and add the DataSet to it
-        accLineDataRaw = new LineData(accMagnitudeDataSet);
-        lineChartRaw.setData(accLineDataRaw);
+        rollDataset.setDrawCircles(false);
+        rollDataset.setColor(ColorTemplate.getHoloBlue());
+        rollDataset.setLineWidth(2f);
+        rollDataset.setDrawValues(false);
 
-        // Initialize DataSet for accelerometer magnitude
-        accKFDataset = new LineDataSet(null, "Accel KF (m/s²)");
-        accKFDataset.setDrawCircles(false);
-        accKFDataset.setColor(ColorTemplate.getHoloBlue());
-        accKFDataset.setLineWidth(2f);
-        accKFDataset.setDrawValues(false);
+        pitchDataset.setDrawCircles(false);
+        pitchDataset.setColor(ColorTemplate.COLORFUL_COLORS[1]); // Use a different color
+        pitchDataset.setLineWidth(2f);
+        pitchDataset.setDrawValues(false);
 
+        yawDataset.setDrawCircles(false);
+        yawDataset.setColor(ColorTemplate.COLORFUL_COLORS[2]); // Use a different color
+        yawDataset.setLineWidth(2f);
+        yawDataset.setDrawValues(false);
 
-        // Initialize LineData and add the DataSet to it
-        accLineDataKF = new LineData(accKFDataset);
-        lineChartKF.setData(accLineDataKF);
+        // Combine datasets into LineData
+        orientationData = new LineData(rollDataset, pitchDataset, yawDataset);
+        orientationChart.setData(orientationData);
     }
-
     public void ConfigureCharts(){
-        lineChartRaw.getDescription().setEnabled(false);
-        lineChartRaw.setDrawGridBackground(false);
+        orientationChart.getLegend().setEnabled(true);
+        orientationChart.getDescription().setEnabled(false);
+        orientationChart.setDrawGridBackground(false);
 
-        XAxis xAxis = lineChartRaw.getXAxis();
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setLabelCount(5, true);
-        xAxis.setValueFormatter(new IndexAxisValueFormatter());
-        xAxis.setDrawGridLines(false);
-
-        // Customize the Y-Axis (Left)
-        // lineChartRaw.getAxisRight().setEnabled(false); // Disable right Y axis
-        // lineChartRaw.getAxisLeft().setDrawGridLines(true);
-        // lineChartRaw.getAxisLeft().setAxisMinimum(8f); // Set the minimum value of the Y axis
-        // lineChartRaw.getAxisLeft().setAxisMaximum(12f); // Set the maximum value of the Y axis
-        // lineChartRaw.getAxisLeft().setLabelCount(10, true); // Set number of ticks/labels on the Y axis
-
-        lineChartRaw.getLegend().setEnabled(false);
-
-        lineChartRaw.getDescription().setEnabled(false);
-        lineChartRaw.setDrawGridBackground(false);
-
-        XAxis xAxis1 = lineChartKF.getXAxis();
+        XAxis xAxis1 = orientationChart.getXAxis();
         xAxis1.setPosition(XAxis.XAxisPosition.BOTTOM);
         xAxis1.setLabelCount(5, true);
         xAxis1.setValueFormatter(new IndexAxisValueFormatter());
         xAxis1.setDrawGridLines(false);
 
         // Customize the Y-Axis (Left)
-        lineChartKF.getAxisRight().setEnabled(false); // Disable right Y axis
-        lineChartKF.getAxisLeft().setDrawGridLines(true);
-        lineChartKF.getAxisLeft().setLabelCount(10, true); // Set number of ticks/labels on the Y axis
+        orientationChart.getAxisRight().setEnabled(false); // Disable right Y-axis
+        orientationChart.getAxisLeft().setDrawGridLines(true);
+        orientationChart.getAxisLeft().setLabelCount(9, true); // Set number of ticks/labels on the Y-axis
+        orientationChart.getAxisLeft().setAxisMinimum((float) -180); // Set Y-axis minimum to -180
+        orientationChart.getAxisLeft().setAxisMaximum((float) 180);  // Set Y-axis maximum to 180
 
-        lineChartKF.getLegend().setEnabled(false);
+        // Enable the legend and set it for the datasets
+        orientationChart.getLegend().setEnabled(true);
+        orientationChart.getLegend().setTextColor(ColorTemplate.getHoloBlue());
+        orientationChart.getLegend().setTextSize(12f); // Adjust text size for the legend
     }
 
-    public void AddEntriesChart(double raw, double filtered) {
-        // Add new entry
-        accMagnitudeDataSet.addEntry(new Entry(sampleCount++, (float)raw));
+    public void AddEntriesChart(FMatrix3 orientation) {
+        // Add new entry for roll, pitch, and yaw
+        rollDataset.addEntry(new Entry(sampleCount, orientation.a1)); // Roll
+        pitchDataset.addEntry(new Entry(sampleCount, orientation.a2)); // Pitch
+        yawDataset.addEntry(new Entry(sampleCount, orientation.a3)); // Yaw
 
         // Limit dataset size to 200 samples
-        if (accMagnitudeDataSet.getEntryCount() > MAX_SAMPLES) {
-            accMagnitudeDataSet.removeFirst();
-            for (Entry entry : accMagnitudeDataSet.getValues()) {
+        if (rollDataset.getEntryCount() > MAX_SAMPLES) {
+            rollDataset.removeFirst();
+            for (Entry entry : rollDataset.getValues()) {
                 entry.setX(entry.getX() - 1);
             }
             sampleCount = MAX_SAMPLES;
         }
 
-        // Refresh chart
-        accLineDataRaw.notifyDataChanged();
-        lineChartRaw.notifyDataSetChanged();
-        lineChartRaw.setVisibleXRangeMaximum(MAX_SAMPLES);
-        lineChartRaw.moveViewToX(sampleCount);
-
-        // Add new entry
-        accKFDataset.addEntry(new Entry(sampleCount++, (float)filtered));
-
         // Limit dataset size to 200 samples
-        if (accKFDataset.getEntryCount() > MAX_SAMPLES) {
-            accKFDataset.removeFirst();
-            for (Entry entry : accKFDataset.getValues()) {
+        if (pitchDataset.getEntryCount() > MAX_SAMPLES) {
+            pitchDataset.removeFirst();
+            for (Entry entry : pitchDataset.getValues()) {
                 entry.setX(entry.getX() - 1);
             }
             sampleCount = MAX_SAMPLES;
         }
 
+        // Limit dataset size to 200 samples
+        if (yawDataset.getEntryCount() > MAX_SAMPLES) {
+            yawDataset.removeFirst();
+            for (Entry entry : yawDataset.getValues()) {
+                entry.setX(entry.getX() - 1);
+            }
+            sampleCount = MAX_SAMPLES;
+        }
+
+
         // Refresh chart
-        accLineDataKF.notifyDataChanged();
-        lineChartKF.notifyDataSetChanged();
-        lineChartKF.setVisibleXRangeMaximum(MAX_SAMPLES);
-        lineChartKF.moveViewToX(sampleCount);
+        orientationData.notifyDataChanged();
+        orientationChart.notifyDataSetChanged();
+        orientationChart.setVisibleXRangeMaximum(MAX_SAMPLES);
+        orientationChart.moveViewToX(sampleCount);
     }
 
-    public void UpdateTextUI(SimpleMatrix acc, double filtered){
+    public void UpdateTextUI(FMatrix3 acc, double filtered){
         // Update UI
-        binding.tvAccx.setText(String.format("Ax: %.4f m/s²", acc.get(0)));
-        binding.tvAccy.setText(String.format("Ay: %.4f m/s²", acc.get(1)));
-        binding.tvAccz.setText(String.format("Az: %.4f m/s²", acc.get(2)));
-        binding.tvAcc.setText(String.format("Am: %.4f m/s^2", acc.normF()));
+        // binding.tvAccx.setText(String.format("Ax: %.4f m/s²", acc.get(0)));
+        // binding.tvAccy.setText(String.format("Ay: %.4f m/s²", acc.get(1)));
+        // binding.tvAccz.setText(String.format("Az: %.4f m/s²", acc.get(2)));
+        // binding.tvAcc.setText(String.format("Am: %.4f m/s^2", acc.normF()));
         //binding.tvAccBias.setText(String.format("Ab: %.4f m/s²", biasacc));
-        binding.tvAccdyn.setText(String.format("Ad: %.4f m/s²", filtered));
+        // binding.tvAccdyn.setText(String.format("Ad: %.4f m/s²", filtered));
         //binding.tvAccdyn.setText(String.format("Steps: %d", stepCounter));
     }
 }
