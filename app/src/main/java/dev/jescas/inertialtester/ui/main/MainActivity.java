@@ -1,5 +1,6 @@
 package dev.jescas.inertialtester.ui.main;
 
+import android.graphics.Color;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.os.Bundle;
@@ -9,32 +10,63 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.github.mikephil.charting.charts.CombinedChart;
 import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.charts.ScatterChart;
 import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.CombinedData;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.data.ScatterData;
+import com.github.mikephil.charting.data.ScatterDataSet;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.utils.ColorTemplate;
+import com.github.mikephil.charting.utils.EntryXComparator;
 
 import org.ejml.data.FMatrix3;
 import org.ejml.simple.SimpleMatrix;
 
 
+import java.util.Collections;
+
 import dev.jescas.inertialtester.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity implements IMainView {
     private ActivityMainBinding binding;
-    LineChart orientationChart;
-    private LineDataSet rollDataset;
-    private LineDataSet pitchDataset;
-    private LineDataSet yawDataset;
+    private LineChart orientationChart;
+    private LineChart stepDetectionChart;
+
+    // Orientation Chart
+    private LineDataSet[] orientationDataset;
     private LineData orientationData;
+
+    // Step Detection Chart
+    private LineDataSet peaksDataset;
+    private LineDataSet thresholdDataset;
+    private LineData stepDetectionData;
+
+    // Trajectory Chart
+    private CombinedChart trajectoryChart;
+    private CombinedData trajectoryData;
+    private ScatterDataSet stepsMarkerDataset;
+    private LineDataSet trajectoryPathDataset;
+    // Chart Margin
+    float maxCurrentX = 0f;
+    float minCurrentX = 0f;
+    float maxCurrentY = 0f;
+    float minCurrentY = 0f;
+    float margin = 0.4f;
 
     private static final int MAX_SAMPLES = 200; // Limit to 200 samples
     private int sampleCount = 0;
     private boolean onRecord = true;
     private IMainPresenter mainPresenter;
+    private float currentX = 0f;  // Starting X position
+    private float currentY = 0f;  // Starting Y position
+    private float stepLength = 0.8f;  // Average step length in meters
+    private int lastStepCount = 0;    // To store the previous step count
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -63,11 +95,11 @@ public class MainActivity extends AppCompatActivity implements IMainView {
         ConfigureCharts();
     }
 
-    public void OnRecord(View view){
-        if(onRecord){
+    public void OnRecord(View view) {
+        if (onRecord) {
             binding.btnRecord.setText("Stop");
             Toast.makeText(this, "Recording started", Toast.LENGTH_SHORT).show();
-        }else{
+        } else {
             binding.btnRecord.setText("Record");
             Toast.makeText(this, "Recording finished", Toast.LENGTH_SHORT).show();
         }
@@ -75,38 +107,67 @@ public class MainActivity extends AppCompatActivity implements IMainView {
         onRecord = !onRecord;
     }
 
-    public void OnRecordFinished(String filepath){
+    public void OnRecordFinished(String filepath) {
         Toast.makeText(this, "Saving file in " + filepath, Toast.LENGTH_SHORT).show();
     }
 
     public void SetupCharts() {
+        // Orientation Chart
         orientationChart = binding.chartOrientation;
-
-        // Initialize DataSet for roll, pitch, and yaw
-        rollDataset = new LineDataSet(null, "Roll");
-        pitchDataset = new LineDataSet(null, "Pitch"); // Initialize pitch dataset
-        yawDataset = new LineDataSet(null, "Yaw"); // Initialize yaw dataset
-
-        rollDataset.setDrawCircles(false);
-        rollDataset.setColor(ColorTemplate.getHoloBlue());
-        rollDataset.setLineWidth(2f);
-        rollDataset.setDrawValues(false);
-
-        pitchDataset.setDrawCircles(false);
-        pitchDataset.setColor(ColorTemplate.COLORFUL_COLORS[1]); // Use a different color
-        pitchDataset.setLineWidth(2f);
-        pitchDataset.setDrawValues(false);
-
-        yawDataset.setDrawCircles(false);
-        yawDataset.setColor(ColorTemplate.COLORFUL_COLORS[2]); // Use a different color
-        yawDataset.setLineWidth(2f);
-        yawDataset.setDrawValues(false);
-
-        // Combine datasets into LineData
-        orientationData = new LineData(rollDataset, pitchDataset, yawDataset);
+        orientationData = new LineData();
+        orientationDataset = new LineDataSet[]{
+                new LineDataSet(null, "Roll"),
+                new LineDataSet(null, "Pitch"),
+                new LineDataSet(null, "Yaw")
+        };
+        for (int i = 0; i < orientationDataset.length; i++) {
+            orientationDataset[i].setDrawCircles(false);
+            orientationDataset[i].setLineWidth(2f);
+            orientationDataset[i].setDrawValues(false);
+            orientationDataset[i].setColor(ColorTemplate.COLORFUL_COLORS[i]);
+            orientationData.addDataSet(orientationDataset[i]);
+        }
         orientationChart.setData(orientationData);
+
+        // Acceleration Chart
+        stepDetectionChart = binding.chartPeak;
+        peaksDataset = new LineDataSet(null, "Acceleration");
+        thresholdDataset = new LineDataSet(null, "Threshold");
+        peaksDataset.setDrawCircles(false);
+        peaksDataset.setColor(ColorTemplate.COLORFUL_COLORS[0]);
+        peaksDataset.setLineWidth(2f);
+        peaksDataset.setDrawValues(false);
+
+        thresholdDataset.setDrawCircles(false);
+        thresholdDataset.setColor(ColorTemplate.COLORFUL_COLORS[1]); // Use a different color
+        thresholdDataset.setLineWidth(2f);
+        thresholdDataset.setDrawValues(false);
+
+        stepDetectionData = new LineData(peaksDataset, thresholdDataset);
+        stepDetectionChart.setData(stepDetectionData);
+
+        // Trajectory Chart
+        trajectoryChart = binding.chartTrajectory;
+        stepsMarkerDataset = new ScatterDataSet(null, "Markers");
+        stepsMarkerDataset.setScatterShape(ScatterChart.ScatterShape.CIRCLE);
+        stepsMarkerDataset.setColor(Color.RED);
+        stepsMarkerDataset.setScatterShapeSize(10f);
+        stepsMarkerDataset.setDrawValues(false);
+
+        trajectoryPathDataset = new LineDataSet(null, "Trajectory");
+        trajectoryPathDataset.setDrawCircles(false);
+        trajectoryPathDataset.setColor(Color.RED); // Use a different color
+        trajectoryPathDataset.setLineWidth(2f);
+        trajectoryPathDataset.setDrawValues(false);
+
+        trajectoryData = new CombinedData();
+        trajectoryData.setData(new ScatterData(stepsMarkerDataset));
+        //trajectoryData.setData(new LineData(trajectoryPathDataset));
+        trajectoryChart.setData(trajectoryData);
+
     }
-    public void ConfigureCharts(){
+
+    public void ConfigureCharts() {
         orientationChart.getLegend().setEnabled(true);
         orientationChart.getDescription().setEnabled(false);
         orientationChart.setDrawGridBackground(false);
@@ -125,60 +186,119 @@ public class MainActivity extends AppCompatActivity implements IMainView {
         orientationChart.getAxisLeft().setAxisMaximum((float) 180);  // Set Y-axis maximum to 180
 
         // Enable the legend and set it for the datasets
-        orientationChart.getLegend().setEnabled(true);
-        orientationChart.getLegend().setTextColor(ColorTemplate.getHoloBlue());
-        orientationChart.getLegend().setTextSize(12f); // Adjust text size for the legend
+        stepDetectionChart.getLegend().setEnabled(true);
+        stepDetectionChart.getLegend().setTextColor(ColorTemplate.getHoloBlue());
+        stepDetectionChart.getLegend().setTextSize(12f); // Adjust text size for the legend
+
+        stepDetectionChart.getLegend().setEnabled(true);
+        stepDetectionChart.getDescription().setEnabled(false);
+        stepDetectionChart.setDrawGridBackground(false);
+
+        XAxis xAxis2 = stepDetectionChart.getXAxis();
+        xAxis2.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis2.setLabelCount(5, true);
+        xAxis2.setValueFormatter(new IndexAxisValueFormatter());
+        xAxis2.setDrawGridLines(false);
+
+        // Enable the legend and set it for the datasets
+        stepDetectionChart.getLegend().setEnabled(true);
+        stepDetectionChart.getLegend().setTextColor(ColorTemplate.getHoloBlue());
+        stepDetectionChart.getLegend().setTextSize(12f); // Adjust text size for the legend
+
+        // Chart
+        XAxis xAxis3 = trajectoryChart.getXAxis();
+        xAxis3.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis3.setDrawGridLines(true);
+        xAxis3.setAxisMaximum(3f);
+        xAxis3.setAxisMinimum(-3f);
+        // Customize the Y-Axis (Left)
+        trajectoryChart.setAutoScaleMinMaxEnabled(true);
+        trajectoryChart.getAxisRight().setEnabled(false); // Disable right Y-axis
+        trajectoryChart.getAxisLeft().setDrawGridLines(true);
+        trajectoryChart.getAxisLeft().setAxisMaximum(3f);
+        trajectoryChart.getAxisLeft().setAxisMinimum(-3f);
+        trajectoryChart.getLegend().setEnabled(false);
+        trajectoryChart.getDescription().setEnabled(false);
     }
 
-    public void AddEntriesChart(FMatrix3 orientation) {
-        // Add new entry for roll, pitch, and yaw
-        rollDataset.addEntry(new Entry(sampleCount, orientation.a1)); // Roll
-        pitchDataset.addEntry(new Entry(sampleCount, orientation.a2)); // Pitch
-        yawDataset.addEntry(new Entry(sampleCount, orientation.a3)); // Yaw
-
-        // Limit dataset size to 200 samples
-        if (rollDataset.getEntryCount() > MAX_SAMPLES) {
-            rollDataset.removeFirst();
-            for (Entry entry : rollDataset.getValues()) {
-                entry.setX(entry.getX() - 1);
-            }
-            sampleCount = MAX_SAMPLES;
+    public void AddEntriesChart(FMatrix3 orientation, double raw) {
+        // Update orientation Chart
+        for (int i = 0; i < orientationDataset.length; i++) {
+            orientationDataset[i].addEntry(new Entry(sampleCount, orientation.get(0, i)));
+            LimitDatasetSize(orientationDataset[i]);
         }
-
-        // Limit dataset size to 200 samples
-        if (pitchDataset.getEntryCount() > MAX_SAMPLES) {
-            pitchDataset.removeFirst();
-            for (Entry entry : pitchDataset.getValues()) {
-                entry.setX(entry.getX() - 1);
-            }
-            sampleCount = MAX_SAMPLES;
-        }
-
-        // Limit dataset size to 200 samples
-        if (yawDataset.getEntryCount() > MAX_SAMPLES) {
-            yawDataset.removeFirst();
-            for (Entry entry : yawDataset.getValues()) {
-                entry.setX(entry.getX() - 1);
-            }
-            sampleCount = MAX_SAMPLES;
-        }
-
-
         // Refresh chart
         orientationData.notifyDataChanged();
         orientationChart.notifyDataSetChanged();
         orientationChart.setVisibleXRangeMaximum(MAX_SAMPLES);
         orientationChart.moveViewToX(sampleCount);
+
+        // Update Acceleration Chart
+        peaksDataset.addEntry(new Entry(sampleCount, (float) raw));
+        thresholdDataset.addEntry(new Entry(sampleCount, 0.4f));
+        LimitDatasetSize(peaksDataset);
+        LimitDatasetSize(thresholdDataset);
+        stepDetectionData.notifyDataChanged();
+        stepDetectionChart.notifyDataSetChanged();
+        stepDetectionChart.setVisibleXRangeMaximum(MAX_SAMPLES);
+        stepDetectionChart.moveViewToX(sampleCount);
     }
 
-    public void UpdateTextUI(FMatrix3 acc, double filtered){
-        // Update UI
-        // binding.tvAccx.setText(String.format("Ax: %.4f m/s²", acc.get(0)));
-        // binding.tvAccy.setText(String.format("Ay: %.4f m/s²", acc.get(1)));
-        // binding.tvAccz.setText(String.format("Az: %.4f m/s²", acc.get(2)));
-        // binding.tvAcc.setText(String.format("Am: %.4f m/s^2", acc.normF()));
-        //binding.tvAccBias.setText(String.format("Ab: %.4f m/s²", biasacc));
-        // binding.tvAccdyn.setText(String.format("Ad: %.4f m/s²", filtered));
-        //binding.tvAccdyn.setText(String.format("Steps: %d", stepCounter));
+    private void LimitDatasetSize(LineDataSet dataset) {
+        if (dataset.getEntryCount() > MAX_SAMPLES) {
+            dataset.removeFirst();
+            for (Entry entry : dataset.getValues()) {
+                entry.setX(entry.getX() - 1);
+            }
+            sampleCount = MAX_SAMPLES;
+        }
+    }
+
+
+    public void UpdateTextUI(double acc, int steps, double heading, double position, double velocity) {
+        if (steps > lastStepCount) {
+            // Convert heading from degrees to radians
+            double headingRadians = Math.toRadians(heading);
+            // Calculate new position using the step length and heading
+            currentX += (float) (stepLength * Math.cos(headingRadians));
+            currentY += (float) (stepLength * Math.sin(headingRadians));
+            stepsMarkerDataset.addEntry(new Entry(currentX, currentY));
+            trajectoryPathDataset.addEntry(new Entry(currentX, currentY));
+
+            if (currentX > maxCurrentX) {
+                maxCurrentX = currentX;
+            }
+            if (currentY > maxCurrentY) {
+                maxCurrentY = currentY;
+            }
+            if (currentY < minCurrentY) {
+                minCurrentY = currentY;
+            }
+            if (currentX < minCurrentX) {
+                minCurrentX = currentX;
+            }
+
+            // Calculate margin for chart
+            float xmargin = (maxCurrentX - minCurrentX) * margin;
+            float ymargin = (maxCurrentY - minCurrentY) * margin;
+            // Sort entries based on X values
+            stepsMarkerDataset.getValues().sort(new EntryXComparator());
+            //Collections.sort(trajectoryPathDataset.getValues(), new EntryXComparator());
+
+            // Set the new axis limits with margin
+            XAxis xAxis = trajectoryChart.getXAxis();
+            xAxis.setAxisMinimum(minCurrentX - xmargin);
+            xAxis.setAxisMaximum(maxCurrentX + xmargin);
+            YAxis leftAxis = trajectoryChart.getAxisLeft();
+            leftAxis.setAxisMinimum(minCurrentY - ymargin);
+            leftAxis.setAxisMaximum(maxCurrentY + ymargin);
+
+            trajectoryData.notifyDataChanged();
+            trajectoryChart.notifyDataSetChanged();
+            trajectoryChart.invalidate();
+        }
+
+        // Update last step count
+        lastStepCount = steps;
     }
 }

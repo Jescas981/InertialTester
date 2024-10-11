@@ -26,4 +26,66 @@
         android:layout_width="match_parent"
         android:layout_height="150dp" />
 
+    <com.github.mikephil.charting.charts.LineChart
+        android:id="@+id/chartPeak"
+        app:layout_constraintTop_toBottomOf="@id/chartOrientation"
+        android:layout_marginTop="25dp"
+        android:layout_marginHorizontal="25dp"
+        android:layout_width="match_parent"
+        android:layout_height="150dp" />
+
+    <com.github.mikephil.charting.charts.CombinedChart
+        android:id="@+id/chartTrajectory"
+        app:layout_constraintTop_toBottomOf="@id/chartPeak"
+        android:layout_marginTop="25dp"
+        android:layout_marginHorizontal="25dp"
+        android:layout_width="match_parent"
+        android:layout_height="150dp" />
+<!--    <LinearLayout-->
+<!--        app:layout_constraintLeft_toLeftOf="parent"-->
+<!--        android:orientation="vertical"-->
+<!--        android:background="@color/cardview_light_background"-->
+<!--        app:layout_constraintRight_toRightOf="parent"-->
+<!--        app:layout_constraintTop_toBottomOf="@id/chartPeak"-->
+<!--        android:layout_width="200dp"-->
+<!--        android:layout_height="wrap_content">-->
+
+<!--        <TextView-->
+<!--            android:id="@+id/tvSteps"-->
+<!--            android:gravity="center"-->
+<!--            android:text="Steps: 0 u"-->
+<!--            android:layout_width="match_parent"-->
+<!--            android:layout_height="30dp"/>-->
+
+<!--        <TextView-->
+<!--            android:id="@+id/tvAcc"-->
+<!--            android:gravity="center"-->
+<!--            android:text="Acc: 0 m/s^2"-->
+<!--            android:layout_width="match_parent"-->
+<!--            android:layout_height="30dp"/>-->
+
+<!--        <TextView-->
+<!--            android:id="@+id/tvHeading"-->
+<!--            android:gravity="center"-->
+<!--            android:text="Heading: 0 deg"-->
+<!--            android:layout_width="match_parent"-->
+<!--            android:layout_height="30dp"/>-->
+
+<!--        <TextView-->
+<!--            android:id="@+id/tvPosition"-->
+<!--            android:gravity="center"-->
+<!--            android:text="Pose: 0 m"-->
+<!--            android:layout_width="match_parent"-->
+<!--            android:layout_height="30dp"/>-->
+
+<!--        <TextView-->
+<!--            android:id="@+id/tvVelocity"-->
+<!--            android:gravity="center"-->
+<!--            android:text="Vel: 0 m/s"-->
+<!--            android:layout_width="match_parent"-->
+<!--            android:layout_height="30dp"/>-->
+
+<!--</LinearLayout>-->
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>

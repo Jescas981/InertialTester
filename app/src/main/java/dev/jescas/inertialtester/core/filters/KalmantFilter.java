@@ -15,7 +15,7 @@ public class KalmantFilter {
         // Initialize the state vector X = [dynamic acceleration, bias]
         X = new SimpleMatrix(2, 1);
         X.set(0, 0, 0);   // Initial dynamic acceleration (starting at 0)
-        X.set(1, 0, 9.81); // Initial bias (gravity)
+        X.set(1, 0, 9.63); // Initial bias (gravity)
 
         // Covariance matrix P (2x2 identity matrix for initial uncertainty)
         P = SimpleMatrix.identity(2);

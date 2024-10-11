@@ -8,6 +8,6 @@ import org.ejml.simple.SimpleMatrix;
 public interface IMainView {
      void OnRecordFinished(String filepath);
     Context getBaseContext();
-    void AddEntriesChart(FMatrix3 orientation);
-    void UpdateTextUI(FMatrix3 acc, double filtered);
+    void AddEntriesChart(FMatrix3 orientation, double raw);
+    void UpdateTextUI(double acc, int steps, double heading, double position, double velocity);
 }

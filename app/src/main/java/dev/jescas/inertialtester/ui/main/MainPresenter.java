@@ -16,6 +16,8 @@ import java.nio.ByteOrder;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import dev.jescas.inertialtester.core.algorithms.StepDetection;
+import dev.jescas.inertialtester.core.math.Quaternion;
 import dev.jescas.inertialtester.core.persistance.WriteFileStream;
 
 
@@ -24,9 +26,15 @@ public class MainPresenter implements IMainPresenter{
     private final MainModel model;
     private boolean onRecording = false;
     private WriteFileStream accFileStream, magFileStream, gyroFileStream;
-    private FMatrix3 accVector = new FMatrix3();
-    private FMatrix3 magVector = new FMatrix3();
 
+    // Timestamps for synchronization
+    private long currTimestamp = 0;
+    private long prevTimestamp = 0;
+
+    // Store the last measurements
+    private float[] lastAccValues = new float[3];
+    private float[] lastGyroValues = new float[3];
+    private float[] lastMagValues = new float[3];
 
     public MainPresenter(IMainView view){
         this.view = view;
@@ -51,38 +59,61 @@ public class MainPresenter implements IMainPresenter{
 
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
-        // Check Sensor Type
-        if (sensorEvent.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
-            // Turn this into a Vector3f
-            float[] values = sensorEvent.values;
-            // Create Acceleration Vector
-            accVector = new FMatrix3(values[0],values[1],values[2]);
-            // Process Data & Show in UI
-            FMatrix3 orientation = model.ProcessOrientation(accVector,magVector);
-            view.AddEntriesChart(orientation);
-            // Save on record only
-            if(onRecording){
-                accFileStream.AppendData(values);
-            }
-        }
-        if (sensorEvent.sensor.getType() == Sensor.TYPE_GYROSCOPE){
-            // Turn this into a Vector3f
-            float[] values = sensorEvent.values;
-            // Save on record only
-            if(onRecording){
-                gyroFileStream.AppendData(values);
-            }
-        }
-        if (sensorEvent.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
-            // Turn this into a Vector3f
-            float[] values = sensorEvent.values;
-            magVector = new FMatrix3(values[0],values[1],values[2]);
-            // Save on record only
-            if(onRecording){
-                magFileStream.AppendData(values);
-            }
+        currTimestamp = sensorEvent.timestamp;
+
+        switch (sensorEvent.sensor.getType()) {
+            case Sensor.TYPE_ACCELEROMETER:
+                // Update last values and timestamp
+                lastAccValues = sensorEvent.values.clone();
+                break;
+
+            case Sensor.TYPE_GYROSCOPE:
+                // Update last values and timestamp
+                lastGyroValues = sensorEvent.values.clone();
+                break;
+
+            case Sensor.TYPE_MAGNETIC_FIELD:
+                // Update last values and timestamp
+                lastMagValues = sensorEvent.values.clone();
+                Process();
+                prevTimestamp = currTimestamp;
+                break;
+
         }
     }
+
+    private void Process(){
+        // Calculate delta time in seconds
+        double deltaTime = (currTimestamp - prevTimestamp) * 1e-9; // Convert nanoseconds to seconds
+        if(deltaTime > 1.0){
+            return;
+        }
+        // Create FMatrix3 objects for processing
+        FMatrix3 accVector = new FMatrix3(lastAccValues[0],lastAccValues[1],lastAccValues[2]);
+        FMatrix3 magVector = new FMatrix3(lastMagValues[0],lastMagValues[1],lastMagValues[2]);
+        FMatrix3 gyroVector = new FMatrix3(lastGyroValues[0],lastGyroValues[1],lastGyroValues[2]);
+
+        // Process Data & Show in UI
+        Quaternion orientation = model.ProcessQuaternion(accVector, magVector, gyroVector, deltaTime);
+        FMatrix3 angles = orientation.getEulerAngles();
+        FMatrix3 accRot = orientation.rotateVector(accVector);
+        double acc_ft = model.ProcessRawAcceleration(accRot);
+        int steps = model.CountStepsAcceleration(acc_ft, currTimestamp);
+        double heading = angles.a3;
+
+        Double[] integral = model.IntegrateAcceleration(acc_ft, deltaTime);
+
+        view.AddEntriesChart(angles, acc_ft);
+        view.UpdateTextUI(acc_ft, steps, heading, integral[0], integral[1]);
+
+        // Save on record only
+        if (onRecording) {
+            accFileStream.AppendData(lastAccValues);
+            gyroFileStream.AppendData(lastGyroValues);
+            magFileStream.AppendData(lastMagValues);
+        }
+    }
+
 
 
     @Override

@@ -12,8 +12,10 @@ public class FactoredQuaternionAlgorithm {
     private Quaternion quaternion = new Quaternion(1,0,0,0);
 
     // TODO: Input accelerometer, magnetometer data
-    public void Feed(FMatrix3 acc, FMatrix3 mag) {
+    public void Feed(FMatrix3 acc_orig, FMatrix3 mag_orig) {
         // Normalize vectors
+        FMatrix3 acc = acc_orig.copy();
+        FMatrix3 mag = mag_orig.copy();
         NormOps_FDF3.normalizeF(acc);
         NormOps_FDF3.normalizeF(mag);
         // Elevation quaternion
